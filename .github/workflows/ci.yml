@@ -52,9 +52,5 @@ jobs:
 
       - name: Test Docker container
         run: |
-          docker run -d -p 8080:8080 -e PORT=8080 --name test-container test-image \
-            /app/bin/gunicorn --bind :8080 --workers 1 --threads 2 python_example.app:app
-          sleep 10
-          curl -f http://localhost:8080/health
-          docker stop test-container
+          docker run --name test-container -e SERVICE_NAME=python-tool test-image python-tool health
           docker rm test-container

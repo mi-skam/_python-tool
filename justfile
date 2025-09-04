@@ -1,12 +1,11 @@
-# justfile for python-docker-uv project
+# justfile for python-tool CLI application
 
 # Load environment variables from .env file if it exists
 set dotenv-load := true
 
 SERVICE_NAME := env_var("SERVICE_NAME")
-PORT := env_var("PORT")
 ARGS_TEST := env("_UV_RUN_ARGS_TEST", "")
-ARGS_SERVE := env("_UV_RUN_ARGS_SERVE", "")
+ARGS_RUN := env("_UV_RUN_ARGS_CLI", "")
 
 # Show available commands
 @_:
@@ -43,7 +42,7 @@ typing:
 [group('qa')]
 check-all: lint cov typing
 
-# Run development server
+# Setup development environment (start database)
 [group('run')]
 dev:
     #!/usr/bin/env bash
@@ -54,36 +53,44 @@ dev:
         echo "Waiting for services to be ready..."
         sleep 3
     fi
+    echo "Database services started. You can now run CLI commands."
+    echo "Examples:"
+    echo "  just run status --save-db"
+    echo "  just run echo 'hello world' --reverse"
+    echo "  just run health"
 
-    FLASK_ENV=development uv run {{ ARGS_SERVE }} flask --app python_example.app:app run --debug --port={{ PORT }}
-# Run production server with gunicorn
+# Run CLI tool commands
 [group('run')]
-prod:
+run *args:
+    PYTHON_ENV=development uv run {{ ARGS_RUN }} python-tool {{ args }}
+
+# Run CLI tool in production mode  
+[group('run')]
+prod *args:
+    PYTHON_ENV=production uv run {{ ARGS_RUN }} python-tool {{ args }}
+
+# Quick CLI command shortcuts
+[group('run')]
+status:
+    @just run status --save-db --json
+
+[group('run')]
+health:
+    @just run health
+
+[group('run')]
+demo:
     #!/usr/bin/env bash
-    if [ -f compose.yml ]; then
-        echo "Starting Docker Compose services..."
-        docker compose -f compose.yml up --remove-orphans -d
-        echo "Waiting for services to be ready..."
-        sleep 3
-    fi
-    FLASK_ENV=production uv run gunicorn python_example.wsgi:app --bind 0.0.0.0:{{ PORT }} --workers 4
-
-[group('run')]
-prod-container: build-container
-    docker compose -f compose.prod.yml up --remove-orphans --build
-
-_http *args:
-    uv run http {{ args }}
-
-# Send HTTP request to development server
-[group('run')]
-req path="" *args:
-    @just _http {{ args }} http://127.0.0.1:{{ PORT }}/{{ path }}
-
-# Open development server in web browser
-[group('run')]
-browser:
-    uv run -m webbrowser -t http://127.0.0.1:{{ PORT }}
+    echo "Running CLI tool demo..."
+    echo ""
+    echo "1. Health check:"
+    just run health
+    echo ""
+    echo "2. Echo command:"
+    just run echo '"Hello World"' --reverse --json
+    echo ""
+    echo "3. Status with database:"
+    just run status --save-db --json
 
 # Update dependencies
 [group('lifecycle')]
@@ -109,5 +116,3 @@ fresh: clear install
 [group('lifecycle')]
 build-container:
     docker buildx build --platform linux/amd64,linux/arm64 -t {{SERVICE_NAME}}:latest .
-
-    
