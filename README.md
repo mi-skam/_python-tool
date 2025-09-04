@@ -1,10 +1,11 @@
-# Python Flask Template with uv & Docker
+# Python CLI Tool Template with uv & Docker
 
-A production-ready Flask application template demonstrating modern Python development practices with containerization, dependency management, and database integration.
+A production-ready CLI application template demonstrating modern Python development practices with containerization, dependency management, and database integration.
 
 ## Template Overview
 
-- **Flask web framework** with PostgreSQL database integration
+- **CLI application** with argument parsing and command structure
+- **PostgreSQL database integration** for optional data persistence
 - **uv dependency management** for fast, reliable package handling  
 - **Docker containerization** with multi-stage builds for production deployment
 - **just task automation** for streamlined development workflows
@@ -14,16 +15,15 @@ A production-ready Flask application template demonstrating modern Python develo
 
 ## Architecture Components
 
-### Core Application (`src/python_example/`)
-- **`app.py`** - Main Flask application with request logging to database
-- **`models.py`** - SQLAlchemy models for data persistence 
-- **`wsgi.py`** - WSGI entry point for production deployment
+### Core Application (`src/python_tool/`)
+- **`main.py`** - Main CLI application with argument parsing and command handlers
+- **`models.py`** - SQLAlchemy models for optional data persistence 
 
 ### Development Infrastructure
 - **`justfile`** - Task automation (like `npm scripts` but more powerful)
 - **`pyproject.toml`** - Project dependencies and Python package configuration
 - **`uv.lock`** - Locked dependency versions for reproducible builds
-- **`compose.yml`** - PostgreSQL database for local development
+- **`compose.yml`** - PostgreSQL database for local development (optional)
 
 ### Production Infrastructure  
 - **`Dockerfile`** - Multi-stage build optimized for production
@@ -37,7 +37,7 @@ A production-ready Flask application template demonstrating modern Python develo
 
 ## Prerequisites
 
-- Docker
+- Docker (optional - only needed for database features)
 - [just](https://github.com/casey/just) task runner
 - [uv](https://docs.astral.sh/uv/) Python Package manager
 
@@ -49,17 +49,26 @@ cp .env.example .env
 # Edit .env with your preferred settings
 ```
 
-### 2. Start Development
+### 2. Install Dependencies
 ```bash
 just install  # Install dependencies
-just dev      # Start app + database (http://localhost:8098)
 ```
 
-### 3. Verify Everything Works
+### 3. Run CLI Tool
+```bash
+# Basic commands (no database required)
+just run health
+just run echo "Hello World" --reverse
+
+# With database (starts PostgreSQL automatically)
+just dev  # Setup database
+just run status --save-db
+```
+
+### 4. Verify Everything Works
 ```bash
 just test     # Run test suite
-just req      # Test API endpoint
-just browser  # Open in browser
+just demo     # Run demo commands
 ```
 
 ## Available Commands
@@ -68,9 +77,23 @@ just browser  # Open in browser
 | Command | Description |
 |---------|-------------|
 | `just install` | Install dependencies using uv |
-| `just dev` | Start development server + PostgreSQL |
-| `just req [path]` | Send HTTP request to running server |
-| `just browser` | Open development server in browser |
+| `just dev` | Setup development environment (start database) |
+| `just run <command>` | Run CLI tool commands in development mode |
+| `just demo` | Run demonstration of CLI features |
+
+### CLI Tool Commands
+| Command | Description |
+|---------|-------------|
+| `python-tool health` | Health check - returns OK |
+| `python-tool echo <text>` | Echo text with optional transformations |
+| `python-tool status` | Show application status and system info |
+
+### CLI Options
+| Option | Description |
+|--------|-------------|
+| `--json` | Output results in JSON format |
+| `--reverse` | (echo command) Also return reversed text |
+| `--save-db` | (status command) Save execution to database |
 
 ### Quality Assurance  
 | Command | Description |
@@ -84,8 +107,7 @@ just browser  # Open in browser
 ### Production & Deployment
 | Command | Description |
 |---------|-------------|
-| `just prod` | Run production server with gunicorn |
-| `just prod-container` | Build and run production Docker container |
+| `just prod <command>` | Run CLI tool in production mode |
 | `just build-container` | Build multi-platform Docker image |
 
 ### Lifecycle Management
@@ -101,11 +123,10 @@ Required environment variables in `.env`:
 
 ```bash
 # Application settings
-SERVICE_NAME=python-uv  
-PORT=8098
-FLASK_ENV=development
+SERVICE_NAME=python-tool
+PYTHON_ENV=development
 
-# Database connection  
+# Database connection (optional - only needed for --save-db features)
 POSTGRES_USER=postgres
 POSTGRES_PASSWORD=postgres
 POSTGRES_DB=app_db
@@ -113,28 +134,32 @@ POSTGRES_HOST=127.0.0.1
 POSTGRES_PORT=5432
 ```
 
-## Building Your Application
+## Building Your CLI Tool
 
-### 1. Add Your Routes
-Start by modifying `src/python_example/app.py`:
+### 1. Add New Commands
+Start by modifying `src/python_tool/main.py`:
 
 ```python
-@app.route("/api/users")
-def get_users():
-    # Your custom logic here
-    return jsonify({"users": []})
+# Add new subparser
+my_parser = subparsers.add_parser("my-command", help="My custom command")
+my_parser.add_argument("--option", help="Custom option")
+
+# Add handler in main()
+elif args.command == "my-command":
+    result = my_custom_function(args.option)
+    print(result)
 ```
 
 ### 2. Create Database Models  
-Add new models to `src/python_example/models.py`:
+Add new models to `src/python_tool/models.py`:
 
 ```python
-class User(Base):
-    __tablename__ = "users"
+class MyModel(Base):
+    __tablename__ = "my_table"
     
     id = Column(Integer, primary_key=True)
     name = Column(String(100), nullable=False)
-    email = Column(String(255), unique=True)
+    created_at = Column(DateTime, default=datetime.utcnow)
 ```
 
 ### 3. Add Dependencies
@@ -142,8 +167,6 @@ Add new packages to `pyproject.toml`:
 
 ```toml
 dependencies = [
-    "flask",
-    "gunicorn", 
     "python-dotenv",
     "psycopg2-binary",
     "sqlalchemy",
@@ -157,42 +180,51 @@ Then run: `just update`
 Add tests to `tests/test_main.py`:
 
 ```python
-def test_your_endpoint(client):
-    response = client.get('/api/users')
-    assert response.status_code == 200
+def test_my_command():
+    result = my_custom_function("test-input")
+    assert result == "expected-output"
 ```
 
 ### 5. Configure Production
 Update `compose.prod.yml` for your deployment needs:
 - Environment variables
-- Volume mounts  
+- Command to run
 - Resource limits
-- Health checks
 
-## API Endpoints (Demo Application)
+## CLI Examples
 
-The template includes a demo Flask app with database integration:
+The template includes a demo CLI tool with database integration:
 
-- **`GET /`** - System info with request logging to database
-- **`GET /health`** - Health check endpoint  
-- **`GET /echo/<text>`** - Echo service with text reversal
+### Basic Commands
+```bash
+# Health check
+$ python-tool health
+OK
 
-**Example response from `/`:**
-```json
+# Echo with transformations
+$ python-tool echo "hello world" --reverse --json
 {
-  "debug_mode": "True",
-  "flask_version": "3.1.0",
+  "original": "hello world",
+  "length": 11,
+  "reversed": "dlrow olleh"
+}
+```
+
+### Status with Database
+```bash
+$ python-tool status --save-db --json
+{
   "python_version": "3.12.0 (main, ...)",
   "environment": "development",
-  "service_name": "python-uv", 
-  "port": "8098",
+  "service_name": "python-tool",
   "timestamp": "2024-01-01T12:00:00.000000",
-  "recent_requests": [
+  "database_status": "connected",
+  "recent_executions": [
     {
       "id": 1,
       "timestamp": "2024-01-01T11:59:55.123456",
-      "environment": "development",
-      "flask_version": "3.1.0"
+      "command": "status",
+      "environment": "development"
     }
   ]
 }
@@ -208,24 +240,33 @@ just check-all # Run all quality checks
 ```
 
 **Test coverage includes:**
-- All Flask endpoints (success & error cases)
+- All CLI command functions (success & error cases)
 - Database model operations
 - Error handling and edge cases
-- API response validation
+- Command-line argument parsing
+- Subprocess execution of CLI commands
 
 ## Deployment Patterns
 
 ### Local Development
 ```bash
-just dev        # App + PostgreSQL with live reload
-just req        # Test API quickly  
+just install    # Install dependencies
+just dev        # Setup database (optional)
+just run health # Test CLI quickly  
+just demo       # See all features
 just check-all  # Verify code quality
 ```
 
 ### Production Container
 ```bash
 just build-container     # Build optimized image
-just prod-container      # Test production build locally
+docker run python-tool:latest python-tool health
+```
+
+### Container with Database
+```bash
+docker compose -f compose.prod.yml up
+# Runs CLI tool with database connection
 ```
 
 ## Troubleshooting
@@ -237,13 +278,13 @@ cp .env.example .env
 # Edit .env with your settings
 ```
 
-**Port conflicts:**
+**Missing SERVICE_NAME:**
 ```bash
-# Change PORT in .env file
-PORT=8099 just dev
+# Add to .env file
+SERVICE_NAME=python-tool
 ```
 
-### Database Issues  
+### Database Issues (Optional)
 **PostgreSQL connection failed:**
 ```bash
 # Restart database container
@@ -272,29 +313,41 @@ just build-container
 docker ps
 ```
 
+### CLI Tool Issues
+**Command not found:**
+```bash
+# Ensure CLI is installed
+just install
+
+# Run via module instead
+uv run python -m src.python_tool.main health
+```
+
 ## Template Customization
 
 ### Change Application Name
-1. Rename `src/python_example/` directory
-2. Update imports in `app.py` and `wsgi.py`  
-3. Update `SERVICE_NAME` in `.env`
-4. Update `[project]` name in `pyproject.toml`
+1. Update `SERVICE_NAME` in `.env`
+2. Update `[project]` name in `pyproject.toml`
+3. Update script name in `[project.scripts]`
+4. Update import paths if needed
 
-### Add New Services
-Add to `compose.yml`:
-```yaml
-services:
-  redis:
-    image: redis:alpine
-    ports:
-      - "6379:6379"
-```
+### Add New Commands
+1. Add subparser in `main.py`
+2. Add command handler function
+3. Add command logic to main() function
+4. Write tests for new command
+
+### Remove Database Features
+1. Remove database-related dependencies from `pyproject.toml`
+2. Remove database imports from `main.py`
+3. Remove `--save-db` options and database code
+4. Remove `compose.yml` and `models.py`
 
 ### Custom justfile Tasks
 Add to `justfile`:
 ```just
-# Deploy to staging
-deploy-staging:
-    docker build -t myapp:staging .
-    docker push registry.example.com/myapp:staging
+# Custom deployment
+deploy:
+    docker build -t myapp:latest .
+    docker push registry.example.com/myapp:latest
 ```

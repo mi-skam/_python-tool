@@ -4,12 +4,12 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-Python Flask template demonstrating modern development practices with:
-- **Flask web framework** with PostgreSQL database integration
+Python CLI tool template demonstrating modern development practices with:
+- **CLI application** with argument parsing and command structure
 - **uv dependency management** for fast package handling
 - **Docker containerization** with multi-stage builds
 - **just task automation** for streamlined workflows  
-- **SQLAlchemy ORM** with automatic request logging
+- **SQLAlchemy ORM** with optional database integration
 - **Comprehensive testing** with pytest and coverage
 - **Quality assurance** with ruff linting and mypy type checking
 
@@ -24,9 +24,9 @@ Python Flask template demonstrating modern development practices with:
 ### Development Workflow
 ```bash
 just install          # Install dependencies using uv
-just dev              # Start Flask app + PostgreSQL (port 8098)
-just req [path]       # Send HTTP request to running server
-just browser          # Open development server in browser
+just dev              # Setup development environment (start database)
+just run <command>    # Run CLI tool commands
+just demo             # Run demonstration commands
 ```
 
 ### Quality Assurance
@@ -40,8 +40,7 @@ just check-all        # Run all quality checks (lint + coverage + typing)
 
 ### Production & Deployment  
 ```bash
-just prod             # Run production server with gunicorn
-just prod-container   # Build and run production Docker container
+just prod <command>   # Run CLI tool in production mode
 just build-container  # Build multi-platform Docker image
 ```
 
@@ -55,23 +54,19 @@ just clear            # Remove temporary files and caches
 ## Configuration
 
 Required environment variables in `.env`:
-- **SERVICE_NAME**: python-uv (application identifier)
-- **PORT**: Application port (8098)
-- **FLASK_ENV**: development or production
-- **POSTGRES_USER/PASSWORD/DB/HOST/PORT**: Database connection settings
-- **_UV_RUN_ARGS_TEST**: Optional test runner args
-- **_UV_RUN_ARGS_SERVE**: Optional server runner args
+- **SERVICE_NAME**: python-tool (application identifier)
+- **PYTHON_ENV**: development or production
+- **POSTGRES_USER/PASSWORD/DB/HOST/PORT**: Database connection settings (optional)
 
 ## Project Structure
 
 ```
 .
 ├── src/
-│   └── python_example/
+│   └── python_tool/
 │       ├── __init__.py
-│       ├── app.py          # Flask application with database integration
-│       ├── models.py       # SQLAlchemy database models
-│       └── wsgi.py         # WSGI entry point for production
+│       ├── main.py         # CLI application with argument parsing
+│       └── models.py       # SQLAlchemy database models (optional)
 ├── tests/
 │   ├── __init__.py
 │   └── test_main.py        # Test suite
@@ -90,18 +85,30 @@ Required environment variables in `.env`:
 └── uv.lock                 # Locked dependencies
 ```
 
-## Flask Application
+## CLI Application
 
-The app (`src/python_example/app.py`) demonstrates database integration:
-- `/` - System info with request logging to PostgreSQL database
-- `/health` - Health check endpoint  
-- `/echo/<text>` - Echo service with text reversal and length
+The CLI tool (`src/python_tool/main.py`) demonstrates:
+- **`health`** - Health check command
+- **`echo <text>`** - Echo service with optional text transformations
+- **`status`** - System info with optional database logging
 
 **Key Features:**
-- **Database persistence** - All requests are logged to PostgreSQL
-- **Automatic schema creation** - Tables created via SQLAlchemy metadata
+- **Argument parsing** - Using argparse for command structure
+- **Database persistence** - Optional execution logging to PostgreSQL
+- **JSON output** - Structured output format option
 - **Error handling** - Graceful degradation if database unavailable
-- **Request history** - Shows last 10 requests from database
+
+## CLI Usage Examples
+
+```bash
+# Basic commands
+python-tool health
+python-tool echo "hello world" --reverse --json
+python-tool status --json
+
+# With database integration
+python-tool status --save-db --json
+```
 
 ## Testing
 
@@ -117,7 +124,7 @@ GitHub Actions workflow (`.github/workflows/ci.yml`):
 - Runs on push/PR to main branch
 - Uses Python 3.12
 - Executes `just check-all` for quality gates
-- Builds and tests Docker container
+- Builds and tests Docker container with CLI commands
 
 ## Common Issues
 
@@ -127,12 +134,7 @@ error: environment variable `VARIABLE_NAME` not present
 ```
 **Solution**: Ensure `.env` file exists with all required variables from `.env.example`
 
-### Port Already in Use
-```bash
-PORT=8099 just dev  # Use alternative port via environment variable
-```
-
-### Database Connection Issues
+### Database Connection Issues (Optional)
 ```bash
 # Restart database container
 docker compose down
@@ -143,10 +145,19 @@ docker compose down -v
 just dev  # Creates fresh database
 ```
 
+### CLI Command Issues
+```bash
+# If python-tool command not found
+just install  # Reinstall CLI tool
+
+# Or run via module
+uv run python -m src.python_tool.main health
+```
+
 ## Best Practices
 
 1. **Always use `.env`**: No hardcoded configuration (fail-fast approach)
-2. **Test locally first**: Use `just dev` for development
+2. **Test locally first**: Use `just run health` for quick testing
 3. **Run checks**: Use `just check-all` before committing
 4. **CI/CD**: All PRs must pass `just check-all` to merge
 
@@ -155,8 +166,7 @@ just dev  # Creates fresh database
 ### Build and Run
 ```bash
 just build-container                    # Build Docker image
-docker run -p 8080:8080 -e PORT=8080 \
-  $(cat .env | xargs) SERVICE_NAME:GIT_ID  # Run container
+docker run -e SERVICE_NAME=python-tool python-tool:latest python-tool health
 ```
 
 ### Production Deployment
@@ -169,7 +179,38 @@ docker compose -f compose.prod.yml up   # Run with production config
 1. Make changes to code
 2. Run `just test` to verify tests pass
 3. Run `just check-all` to ensure code quality
-4. Commit changes (CI will run automatically)
+4. Test CLI commands with `just run <command>`
+5. Commit changes (CI will run automatically)
+
+## Adding New CLI Commands
+
+1. **Add subparser** in `main.py`:
+```python
+new_parser = subparsers.add_parser("new-command", help="Description")
+new_parser.add_argument("--option", help="Option help")
+```
+
+2. **Add command handler**:
+```python
+elif args.command == "new-command":
+    result = handle_new_command(args.option)
+    print(result)
+```
+
+3. **Write tests**:
+```python
+def test_new_command():
+    result = handle_new_command("test-input")
+    assert result == "expected-output"
+```
+
+## Database Integration (Optional)
+
+The template includes optional PostgreSQL integration:
+- **Models**: Defined in `models.py`
+- **Usage**: Commands with `--save-db` flag store execution logs
+- **Setup**: `just dev` starts database automatically
+- **Testing**: Mocked database sessions in tests
 
 ## Justfile Syntax Reference
 

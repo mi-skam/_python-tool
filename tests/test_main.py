@@ -1,109 +1,87 @@
 import json
 import os
+import subprocess
+import sys
 from unittest.mock import MagicMock, patch
 
-import pytest
-
-from src.python_example.app import app
+from src.python_tool.main import echo_command, get_system_info, status_command
 
 
-@pytest.fixture
-def client():
-    """Create a test client for the Flask application."""
-    app.config["TESTING"] = True
-    # Set required environment variables for testing
-    os.environ["FLASK_ENV"] = "testing"
-    with app.test_client() as client:
-        yield client
+def test_get_system_info():
+    """Test system info retrieval."""
+    info = get_system_info()
+    assert "python_version" in info
+    assert "environment" in info
+    assert "service_name" in info
+    assert "timestamp" in info
 
 
-def test_health_endpoint(client):
-    """Test the health check endpoint."""
-    response = client.get("/health")
-    assert response.status_code == 200
-    data = json.loads(response.data)
-    assert data["status"] == "healthy"
+def test_echo_command():
+    """Test the echo command functionality."""
+    # Test basic echo
+    result = echo_command("hello")
+    assert result["original"] == "hello"
+    assert result["length"] == 5
+    assert "reversed" not in result
+
+    # Test echo with reverse
+    result = echo_command("hello", reverse=True)
+    assert result["original"] == "hello"
+    assert result["length"] == 5
+    assert result["reversed"] == "olleh"
 
 
-def test_echo_endpoint(client):
-    """Test the echo endpoint."""
-    test_text = "hello"
-    response = client.get(f"/echo/{test_text}")
-    assert response.status_code == 200
-    data = json.loads(response.data)
-    assert data["you_said"] == test_text
-    assert data["reversed"] == test_text[::-1]
-    assert data["length"] == len(test_text)
+def test_echo_command_empty_string():
+    """Test echo command with empty string."""
+    result = echo_command("")
+    assert result["original"] == ""
+    assert result["length"] == 0
 
 
-def test_echo_endpoint_empty_string(client):
-    """Test the echo endpoint with empty string."""
-    response = client.get("/echo/")
-    assert response.status_code == 404  # Flask returns 404 for empty path parameter
-
-
-def test_echo_endpoint_special_characters(client):
-    """Test the echo endpoint with special characters."""
+def test_echo_command_special_characters():
+    """Test echo command with special characters."""
     test_text = "hello-world_123"
-    response = client.get(f"/echo/{test_text}")
-    assert response.status_code == 200
-    data = json.loads(response.data)
-    assert data["you_said"] == test_text
-    assert data["reversed"] == test_text[::-1]
-    assert data["length"] == len(test_text)
+    result = echo_command(test_text, reverse=True)
+    assert result["original"] == test_text
+    assert result["reversed"] == test_text[::-1]
+    assert result["length"] == len(test_text)
 
 
-def test_root_endpoint_database_dependent(client):
-    """Test the root endpoint - works with database, fails without."""
-    response = client.get("/")
-    data = json.loads(response.data)
-
-    if response.status_code == 200:
-        # Database is available - test successful response
-        assert "environment" in data
-        assert "debug_mode" in data
-        assert "flask_version" in data
-        assert "python_version" in data
-        assert "timestamp" in data
-        assert "port" in data
-        assert "service_name" in data
-        assert "recent_requests" in data
-    elif response.status_code == 503:
-        # Database is unavailable - test error response
-        assert "details" in data
-    else:
-        # Unexpected status code
-        raise AssertionError(f"Unexpected status code: {response.status_code}")
+def test_status_command_without_db():
+    """Test status command without database."""
+    result = status_command(save_to_db=False)
+    assert "python_version" in result
+    assert "environment" in result
+    assert "service_name" in result
+    assert "timestamp" in result
+    assert "database_status" not in result
 
 
-@patch("src.python_example.app.get_db_session")
-def test_root_endpoint_with_database(mock_db_session, client):
-    """Test the root endpoint with mocked database."""
+@patch("src.python_tool.main.get_db_session")
+def test_status_command_with_database(mock_db_session):
+    """Test status command with mocked database."""
     # Mock database session and query
     mock_session = MagicMock()
     mock_db_session.return_value = mock_session
 
-    # Mock query results (empty list of recent requests)
+    # Mock query results (empty list of recent executions)
     mock_query = MagicMock()
     mock_session.query.return_value = mock_query
     mock_query.order_by.return_value = mock_query
     mock_query.limit.return_value = mock_query
     mock_query.all.return_value = []
 
-    response = client.get("/")
-    assert response.status_code == 200
-    data = json.loads(response.data)
+    result = status_command(save_to_db=True)
 
     # Check expected fields are present
-    assert "environment" in data
-    assert "debug_mode" in data
-    assert "flask_version" in data
-    assert "python_version" in data
-    assert "timestamp" in data
-    assert "port" in data
-    assert "service_name" in data
-    assert "recent_requests" in data
-    assert data["recent_requests"] == []
+    assert "python_version" in result
+    assert "environment" in result
+    assert "service_name" in result
+    assert "timestamp" in result
+    assert "recent_executions" in result
+    assert "database_status" in result
+    assert result["database_status"] == "connected"
+    assert result["recent_executions"] == []
 
     # Verify database operations were called
     mock_session.add.assert_called_once()
@@ -111,14 +89,129 @@ def test_root_endpoint_with_database(mock_db_session, client):
     mock_session.close.assert_called_once()
 
 
-@patch("src.python_example.app.get_db_session")
-def test_root_endpoint_database_error(mock_db_session, client):
-    """Test the root endpoint handles database errors gracefully."""
+@patch("src.python_tool.main.get_db_session")
+def test_status_command_database_error(mock_db_session):
+    """Test status command handles database errors gracefully."""
     # Mock database session to raise an exception
     mock_db_session.side_effect = Exception("Database connection failed")
 
-    response = client.get("/")
-    assert response.status_code == 503
-    data = json.loads(response.data)
-    assert "details" in data
-    assert "Database connection failed" in data["details"]
+    result = status_command(save_to_db=True)
+    assert "database_status" in result
+    assert result["database_status"] == "error"
+    assert "database_error" in result
+    assert "Database connection failed" in result["database_error"]
+
+
+def test_cli_health_command():
+    """Test CLI health command via subprocess."""
+    # Set required environment variable
+    env = os.environ.copy()
+    env["SERVICE_NAME"] = "python-tool"
+
+    result = subprocess.run(
+        [sys.executable, "-m", "src.python_tool.main", "health"],
+        capture_output=True,
+        text=True,
+        env=env,
+    )
+    assert result.returncode == 0
+    assert result.stdout.strip() == "OK"
+
+
+def test_cli_echo_command():
+    """Test CLI echo command via subprocess."""
+    # Set required environment variable
+    env = os.environ.copy()
+    env["SERVICE_NAME"] = "python-tool"
+
+    result = subprocess.run(
+        [sys.executable, "-m", "src.python_tool.main", "echo", "test", "--json"],
+        capture_output=True,
+        text=True,
+        env=env,
+    )
+    assert result.returncode == 0
+
+    output = json.loads(result.stdout)
+    assert output["original"] == "test"
+    assert output["length"] == 4
+
+
+def test_cli_echo_command_with_reverse():
+    """Test CLI echo command with reverse option."""
+    # Set required environment variable
+    env = os.environ.copy()
+    env["SERVICE_NAME"] = "python-tool"
+
+    result = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "src.python_tool.main",
+            "echo",
+            "hello",
+            "--reverse",
+            "--json",
+        ],
+        capture_output=True,
+        text=True,
+        env=env,
+    )
+    assert result.returncode == 0
+
+    output = json.loads(result.stdout)
+    assert output["original"] == "hello"
+    assert output["reversed"] == "olleh"
+    assert output["length"] == 5
+
+
+def test_cli_status_command():
+    """Test CLI status command via subprocess."""
+    # Set required environment variable
+    env = os.environ.copy()
+    env["SERVICE_NAME"] = "python-tool"
+
+    result = subprocess.run(
+        [sys.executable, "-m", "src.python_tool.main", "status", "--json"],
+        capture_output=True,
+        text=True,
+        env=env,
+    )
+    assert result.returncode == 0
+
+    output = json.loads(result.stdout)
+    assert "python_version" in output
+    assert "environment" in output
+    assert "service_name" in output
+    assert "timestamp" in output
+
+
+def test_cli_no_command():
+    """Test CLI with no command shows help."""
+    # Set required environment variable
+    env = os.environ.copy()
+    env["SERVICE_NAME"] = "python-tool"
+
+    result = subprocess.run(
+        [sys.executable, "-m", "src.python_tool.main"],
+        capture_output=True,
+        text=True,
+        env=env,
+    )
+    assert result.returncode == 1
+    assert "usage:" in result.stderr.lower() or "usage:" in result.stdout.lower()
+
+
+def test_cli_invalid_command():
+    """Test CLI with invalid command."""
+    # Set required environment variable
+    env = os.environ.copy()
+    env["SERVICE_NAME"] = "python-tool"
+
+    result = subprocess.run(
+        [sys.executable, "-m", "src.python_tool.main", "invalid"],
+        capture_output=True,
+        text=True,
+        env=env,
+    )
+    assert result.returncode != 0

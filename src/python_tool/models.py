@@ -6,18 +6,16 @@ from sqlalchemy.orm import declarative_base, sessionmaker
 Base = declarative_base()
 
 
-class RequestLog(Base):
-    """Model to store request metadata."""
+class ExecutionLog(Base):
+    """Model to store CLI execution metadata."""
 
-    __tablename__ = "request_logs"
+    __tablename__ = "execution_logs"
 
     id = Column(Integer, primary_key=True)
     timestamp = Column(DateTime, nullable=False)
+    command = Column(String(50), nullable=False)
     environment = Column(String(50), nullable=False)
-    flask_version = Column(String(20), nullable=False)
     python_version = Column(String(100), nullable=False)
-    debug_mode = Column(String(10), nullable=False)
-    port = Column(String(10))
     service_name = Column(String(100))
 
     def to_dict(self):
@@ -25,11 +23,9 @@ class RequestLog(Base):
         return {
             "id": self.id,
             "timestamp": self.timestamp.isoformat(),
+            "command": self.command,
             "environment": self.environment,
-            "flask_version": self.flask_version,
             "python_version": self.python_version,
-            "debug_mode": self.debug_mode,
-            "port": self.port,
             "service_name": self.service_name,
         }
 
