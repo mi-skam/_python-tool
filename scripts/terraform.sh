@@ -70,6 +70,26 @@ else
     
     echo "VM IP: $VM_IP"
     echo "DNS: $DNS_NAME"
+    
+    # Wait for SSH to be ready before proceeding to Ansible
+    echo "⏳ Waiting for VM to be ready for SSH..."
+    timeout=300
+    elapsed=0
+    while [ $elapsed -lt $timeout ]; do
+        if ssh -i deployment_key -o ConnectTimeout=5 -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null deploy@${VM_IP} 'echo "SSH ready"' >/dev/null 2>&1; then
+            echo "✅ VM is ready for deployment!"
+            break
+        fi
+        sleep 10
+        elapsed=$((elapsed + 10))
+        if [ $((elapsed % 60)) -eq 0 ]; then
+            echo "Still waiting... ($elapsed/${timeout}s)"
+        fi
+    done
+    
+    if [ $elapsed -ge $timeout ]; then
+        echo "⚠️  Warning: VM not ready after ${timeout}s, proceeding anyway..."
+    fi
     echo ""
 fi
 

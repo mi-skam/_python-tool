@@ -24,6 +24,10 @@ echo "📍 Target VM: $VM_IP ($DNS_NAME)"
 
 cd ../ansible
 
+# Install required Ansible collections
+echo "📦 Installing Ansible collections..."
+ansible-galaxy collection install -r requirements.yml --force >/dev/null 2>&1 || echo "Note: Failed to install collections, proceeding anyway..."
+
 # Create dynamic inventory
 cat > inventory.ini << EOF
 [deployment]

@@ -45,12 +45,13 @@ runcmd:
   # Setup automatic security updates
   - echo 'Unattended-Upgrade::Automatic-Reboot "false";' >> /etc/apt/apt.conf.d/50unattended-upgrades
   
-  # Create basic directories
+  # Create basic directories and fix permissions
   - mkdir -p /home/deploy/app
-  - chown deploy:deploy /home/deploy/app
+  - chown -R deploy:deploy /home/deploy
   
   # Signal cloud-init completion
   - touch /home/deploy/.cloud-init-complete
+  - chown deploy:deploy /home/deploy/.cloud-init-complete
 
 # Write basic info file
 write_files:

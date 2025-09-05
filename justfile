@@ -55,21 +55,6 @@ check-all: lint cov typing
 dev:
     ./scripts/dev.sh
 
-# Run CLI tool commands
-[group('run')]
-run *args:
-    PYTHON_ENV=development uv run {{ ARGS_RUN }} python-tool {{ args }}
-
-# Run CLI tool in production mode  
-[group('run')]
-prod *args:
-    PYTHON_ENV=production uv run {{ ARGS_RUN }} python-tool {{ args }}
-
-# Quick CLI command shortcuts
-[group('run')]
-status:
-    @just run status --save-db --json
-
 # Run CLI tool commands via SSH to cloud infrastructure
 [group('run')]
 ssh *args:
