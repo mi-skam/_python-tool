@@ -2,6 +2,8 @@
 # SSH to deployed Hetzner Cloud VM
 set -euo pipefail
 
+COMMAND="${@:-null}"
+
 cd infrastructure
 
 # Check if deployment exists
@@ -18,5 +20,9 @@ if [ "$VM_IP" = "null" ] || [ -z "$VM_IP" ]; then
     exit 1
 fi
 
-echo "🔗 Connecting to VM at $VM_IP..."
-ssh -i deployment_key -o StrictHostKeyChecking=no deploy@${VM_IP}
+if [ "$COMMAND" != "null" ]; then
+    ssh -T -i deployment_key -o LogLevel=ERROR -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no deploy@${VM_IP} "$COMMAND"
+    exit 0
+elif [ "$COMMAND" != "" ]; then
+    ssh -i deployment_key -o LogLevel=ERROR -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no deploy@${VM_IP}
+fi

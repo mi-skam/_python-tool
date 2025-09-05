@@ -1,24 +1,18 @@
 #!/usr/bin/env bash
-# Push Docker container to GitHub Container Registry
+# Push Docker container to Container Registry
 set -euo pipefail
 
-# Get environment variables
-GIT_HASH=$(git rev-parse --short HEAD)
-GIT_REPO=$(basename $(git rev-parse --show-toplevel))
-
-# Validate required environment variables
-if [ -z "$GIT_REGISTRY" ]; then
-    echo "Error: GIT_REGISTRY environment variable is required"
-    exit 1
-fi
-
-if [ -z "$GIT_USER" ]; then
-    echo "Error: GIT_USER environment variable is required"
-    exit 1
-fi
+# Define image references
+LOCAL_IMAGE="${GIT_REPO}:latest"
+REMOTE_IMAGE="${GIT_REGISTRY}/${GIT_USER}/${GIT_REPO}"
 
 # Tag and push images
-docker tag ${GIT_REPO}:latest ${GIT_REGISTRY}/${GIT_USER}/${GIT_REPO}:latest
-docker tag ${GIT_REPO}:latest ${GIT_REGISTRY}/${GIT_USER}/${GIT_REPO}:${GIT_HASH}
-docker push ${GIT_REGISTRY}/${GIT_USER}/${GIT_REPO}:latest
-docker push ${GIT_REGISTRY}/${GIT_USER}/${GIT_REPO}:${GIT_HASH}
+echo "📦 Tagging images..."
+docker tag "${LOCAL_IMAGE}" "${REMOTE_IMAGE}:latest"
+docker tag "${LOCAL_IMAGE}" "${REMOTE_IMAGE}:${GIT_HASH}"
+
+echo "🚀 Pushing to ${GIT_REGISTRY}..."
+docker push "${REMOTE_IMAGE}:latest"
+docker push "${REMOTE_IMAGE}:${GIT_HASH}"
+
+success "Container pushed to ${REMOTE_IMAGE}:${GIT_HASH}"

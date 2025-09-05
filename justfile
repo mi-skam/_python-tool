@@ -9,6 +9,8 @@ GIT_REGISTRY := env_var("GIT_REGISTRY")
 GIT_HASH := `git rev-parse --short HEAD`
 GIT_REPO := `basename $(git rev-parse --show-toplevel)`
 
+GITHUB_TOKEN := `gh auth token`
+
 HOST := env("HOST", "127.0.0.1")
 ARGS_TEST := env("_UV_RUN_ARGS_TEST", "")
 ARGS_RUN := env("_UV_RUN_ARGS_CLI", "")
@@ -48,13 +50,6 @@ typing:
 [group('qa')]
 check-all: lint cov typing
 
-# Test deployment locally with git hash
-[group('qa')]
-test-deploy: push-container
-    IMAGE_TAG={{GIT_HASH}} GIT_REGISTRY={{GIT_REGISTRY}} GIT_USER={{GIT_USER}} GIT_REPO={{GIT_REPO}} docker compose -f compose.prod.yml up --remove-orphans -d
-    echo "Check the health endpoint at http://{{HOST}}:8098/health"
-    docker compose -f compose.prod.yml logs
-
 # Setup development environment (start database)
 [group('run')]
 dev:
@@ -75,7 +70,10 @@ prod *args:
 status:
     @just run status --save-db --json
 
-
+# Run CLI tool commands via SSH to cloud infrastructure
+[group('run')]
+ssh *args:
+    ./scripts/ssh.sh {{args}}
 
 # Update dependencies
 [group('lifecycle')]
@@ -97,49 +95,27 @@ clear:
 [group('lifecycle')]
 fresh: clear install
 
-# Build Docker image if not exists or if dependencies changed (defaults to host platform for speed)
+# Build Docker image if not exists or if dependencies changed
 [group('deploy')]
-build-container:
+build:
     docker buildx build --platform linux/amd64,linux/arm64 -t {{GIT_REPO}}:latest .
 
+# Push Docker image to Container Registry
 [group('deploy')]
-push-container: build-container
+push: build
     ./scripts/push-container.sh
-
-# Make GitHub package public (one-time setup)
-[group('deploy')]
-make-package-public:
-    ./scripts/make-package-public.sh
-
-# Plan deployment changes
-[group('deploy')]
-plan:
-    #!/usr/bin/env bash
-    export GIT_REPO="{{GIT_REPO}}"
-    export GIT_HASH="{{GIT_HASH}}"
-    export GIT_REGISTRY="{{GIT_REGISTRY}}"
-    export GIT_USER="{{GIT_USER}}"
-    ./scripts/plan.sh
 
 # Deploy to cloud infrastructure
 [group('deploy')]
-deploy: plan
+deploy:
     #!/usr/bin/env bash
     export GIT_REPO="{{GIT_REPO}}"
     export GIT_HASH="{{GIT_HASH}}"
     export GIT_REGISTRY="{{GIT_REGISTRY}}"
     export GIT_USER="{{GIT_USER}}"
-    ./scripts/deploy.sh
-
-# SSH to cloud infrastructure
-[group('deploy')]
-ssh:
-    ./scripts/ssh.sh
-
-# Run python-tool command on deployed VM
-[group('deploy')]
-ssh-run *args:
-    ./scripts/ssh-run.sh {{args}}
+    export GITHUB_TOKEN="{{GITHUB_TOKEN}}"
+    ./scripts/terraform.sh deploy
+    ./scripts/ansible.sh
 
 # Destroy deployment
 [group('deploy')]
@@ -149,11 +125,11 @@ teardown:
     export GIT_HASH="{{GIT_HASH}}"
     export GIT_REGISTRY="{{GIT_REGISTRY}}"
     export GIT_USER="{{GIT_USER}}"
-    echo "🧨 Destroying deployment..."
-    read -p "Are you sure? (y/N): " -n 1 -r && echo
-    if [[ $REPLY =~ ^[Yy]$ ]]; then
-        cd infrastructure && tofu destroy -auto-approve \
+    export GITHUB_TOKEN="{{GITHUB_TOKEN}}"
+    
+    cd infrastructure && tofu destroy -auto-approve \
             -var="project_name=${GIT_REPO}" \
             -var="deployment_id=${GIT_HASH}" \
-            -var="image_tag=${GIT_REGISTRY}/${GIT_USER}/${GIT_REPO}:${GIT_HASH}"
-    fi
+            -var="image_tag=${GIT_REGISTRY}/${GIT_USER}/${GIT_REPO}:${GIT_HASH}" \
+            -var="github_user=${GIT_USER}" \
+            -var="github_token=${GITHUB_TOKEN}"

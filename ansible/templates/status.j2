@@ -1,0 +1,15 @@
+#!/bin/bash
+echo "=== Deployment Status ==="
+echo "Project: {{ project_name }}"
+echo "Deployment ID: {{ deployment_id }}"
+echo "Container Image: {{ image_tag }}"
+echo "Deployed: {{ ansible_date_time.iso8601 }}"
+echo ""
+echo "=== Python Tool Commands ==="
+echo "Available commands:"
+echo "  python-tool health     - Check health"
+echo "  python-tool status     - Show status"
+echo "  python-tool echo TEXT  - Echo text with transformations"
+echo ""
+echo "=== Testing CLI Tool ==="
+python-tool health

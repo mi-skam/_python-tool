@@ -44,3 +44,14 @@ variable "domain" {
   type        = string
   default     = "miskam.xyz"
 }
+
+variable "github_user" {
+  description = "GitHub username for container registry authentication"
+  type        = string
+}
+
+variable "github_token" {
+  description = "GitHub personal access token for container registry authentication"
+  type        = string
+  sensitive   = true
+}

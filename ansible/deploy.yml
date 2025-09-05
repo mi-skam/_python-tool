@@ -1,0 +1,85 @@
+---
+- name: Deploy Python CLI Tool
+  hosts: all
+  become: false
+  vars:
+    project_name: "{{ project_name }}"
+    deployment_id: "{{ deployment_id }}"
+    image_tag: "{{ image_tag }}"
+    github_user: "{{ github_user }}"
+    github_token: "{{ github_token }}"
+    
+  tasks:
+    - name: Wait for cloud-init to complete
+      wait_for:
+        path: /home/deploy/.cloud-init-complete
+        timeout: 300
+      
+    - name: Create Docker config directory
+      file:
+        path: /home/deploy/.docker
+        state: directory
+        owner: deploy
+        group: deploy
+        mode: '0755'
+    
+    - name: Login to GitHub Container Registry
+      docker_login:
+        registry_url: ghcr.io
+        username: "{{ github_user }}"
+        password: "{{ github_token }}"
+        
+    - name: Pull Docker image
+      docker_image:
+        name: "{{ image_tag }}"
+        source: pull
+        force_source: true
+        
+    - name: Create CLI wrapper script
+      template:
+        src: python-tool.j2
+        dest: /home/deploy/python-tool
+        owner: deploy
+        group: deploy
+        mode: '0755'
+        
+    - name: Create system-wide symlink
+      become: true
+      file:
+        src: /home/deploy/python-tool
+        dest: /usr/local/bin/python-tool
+        state: link
+        
+    - name: Create deployment info file
+      template:
+        src: deployment-info.j2
+        dest: /home/deploy/deployment-info.txt
+        owner: deploy
+        group: deploy
+        mode: '0644'
+        
+    - name: Test CLI tool health
+      command: python-tool health
+      register: health_check
+      
+    - name: Display health check result
+      debug:
+        msg: "Health check result: {{ health_check.stdout }}"
+        
+    - name: Create status script
+      template:
+        src: status.j2
+        dest: /home/deploy/status.sh
+        owner: deploy
+        group: deploy
+        mode: '0755'
+        
+    - name: Reboot system to ensure clean state
+      become: true
+      reboot:
+        msg: "Rebooting after deployment to ensure clean system state"
+        connect_timeout: 5
+        reboot_timeout: 300
+        pre_reboot_delay: 0
+        post_reboot_delay: 30
+        test_command: docker --version && python-tool health
