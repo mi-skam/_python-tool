@@ -41,7 +41,7 @@ resource "hcloud_ssh_key" "deploy_key" {
 resource "hcloud_server" "app_server" {
   name        = "${var.project_name}-${var.deployment_id}"
   image       = "ubuntu-22.04"
-  server_type = "cx11"  # Cheapest option
+  server_type = "cx22"  # Small AMD instance (2 vCPU, 4GB RAM)
   location    = "nbg1"  # Nuremberg datacenter
 
   ssh_keys = [hcloud_ssh_key.deploy_key.id]
@@ -52,7 +52,6 @@ resource "hcloud_server" "app_server" {
     project_name        = var.project_name
     deployment_id       = var.deployment_id
     image_tag          = var.image_tag
-    deployed_url       = "${var.project_name}-${var.deployment_id}.${var.domain}"
   })
 
   # Allow changes to user_data without recreating the server
@@ -65,7 +64,7 @@ resource "hcloud_server" "app_server" {
 resource "cloudflare_record" "app_dns" {
   zone_id = var.cloudflare_zone_id
   name    = "${var.project_name}-${var.deployment_id}"
-  value   = hcloud_server.app_server.ipv4_address
+  content = hcloud_server.app_server.ipv4_address
   type    = "A"
   ttl     = 300
 }
@@ -75,7 +74,7 @@ output "deployment_info" {
   value = {
     vm_ip            = hcloud_server.app_server.ipv4_address
     vm_name          = hcloud_server.app_server.name
-    deployed_url     = "http://${cloudflare_record.app_dns.hostname}:8098"
+    dns_name         = cloudflare_record.app_dns.hostname
     ssh_command      = "ssh -i deployment_key deploy@${hcloud_server.app_server.ipv4_address}"
     deploy_password  = random_password.deploy_password.result
     deployment_id    = var.deployment_id

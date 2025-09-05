@@ -23,6 +23,8 @@ packages:
   - ufw
   - fail2ban
   - unattended-upgrades
+  - python3
+  - python3-pip
 
 # Configure firewall
 runcmd:
@@ -31,11 +33,10 @@ runcmd:
   - systemctl start docker
   - usermod -aG docker deploy
   
-  # Configure firewall
+  # Configure firewall (SSH only, no HTTP ports)
   - ufw default deny incoming
   - ufw default allow outgoing
   - ufw allow ssh
-  - ufw allow 8098/tcp  # Application port
   - ufw --force enable
   
   # Configure fail2ban
@@ -48,45 +49,30 @@ runcmd:
   # Wait for Docker to be ready
   - sleep 10
   
-  # Login to GitHub Container Registry (public, no auth needed for pulling)
+  # Pull the Docker image with the CLI tool
   - su - deploy -c "docker pull ${image_tag}"
   
   # Create application directory
   - su - deploy -c "mkdir -p /home/deploy/app"
   
-  # Create basic compose file for deployment
+  # Create wrapper script for the CLI tool
   - |
-    cat > /home/deploy/app/compose.deploy.yml << 'EOF'
-    services:
-      app:
-        image: ${image_tag}
-        ports:
-          - "8098:8098"
-        environment:
-          - SERVICE_NAME=${project_name}
-          - DEPLOYED_URL=${deployed_url}
-          - DEPLOYMENT_ID=${deployment_id}
-          - PYTHON_ENV=production
-        restart: unless-stopped
-        depends_on:
-          - postgres
-
-      postgres:
-        image: postgres:15
-        environment:
-          POSTGRES_USER: postgres
-          POSTGRES_PASSWORD: postgres
-          POSTGRES_DB: app_db
-        restart: unless-stopped
-        volumes:
-          - postgres_data:/var/lib/postgresql/data
-
-    volumes:
-      postgres_data:
+    cat > /home/deploy/python-tool << 'EOF'
+    #!/bin/bash
+    # Wrapper script for python-tool CLI
+    docker run --rm -it \
+      -e SERVICE_NAME=${project_name} \
+      -e DEPLOYMENT_ID=${deployment_id} \
+      -e PYTHON_ENV=production \
+      ${image_tag} \
+      python-tool "$@"
     EOF
   
-  # Start the application
-  - su - deploy -c "cd /home/deploy/app && docker compose -f compose.deploy.yml up -d"
+  - chmod +x /home/deploy/python-tool
+  - chown deploy:deploy /home/deploy/python-tool
+  
+  # Make it available system-wide
+  - ln -s /home/deploy/python-tool /usr/local/bin/python-tool
   
   # Create a simple status script
   - |
@@ -95,13 +81,16 @@ runcmd:
     echo "=== Deployment Status ==="
     echo "Project: ${project_name}"
     echo "Deployment ID: ${deployment_id}"
-    echo "URL: http://${deployed_url}:8098"
+    echo "Container Image: ${image_tag}"
     echo ""
-    echo "=== Docker Status ==="
-    docker compose -f /home/deploy/app/compose.deploy.yml ps
+    echo "=== Python Tool Commands ==="
+    echo "Available commands:"
+    echo "  python-tool health     - Check health"
+    echo "  python-tool status     - Show status"
+    echo "  python-tool echo TEXT  - Echo text with transformations"
     echo ""
-    echo "=== Application Logs (last 20 lines) ==="
-    docker compose -f /home/deploy/app/compose.deploy.yml logs --tail=20 app
+    echo "=== Testing CLI Tool ==="
+    python-tool health
     EOF
   
   - chmod +x /home/deploy/status.sh
@@ -116,21 +105,36 @@ write_files:
       Project: ${project_name}
       Deployment ID: ${deployment_id}
       Image: ${image_tag}
-      URL: http://${deployed_url}:8098
       
-      Useful Commands:
+      CLI Tool Usage:
+      ==============
+      The python-tool CLI is installed and available system-wide.
+      
+      Examples:
+      --------
+      # Check health
+      python-tool health
+      
+      # Show status
+      python-tool status --json
+      
+      # Echo with transformations
+      python-tool echo "Hello World" --reverse
+      python-tool echo "test" --uppercase --json
+      
+      # Get help
+      python-tool --help
+      
+      Docker Commands:
       ===============
-      # Check status
-      ./status.sh
+      # Run directly with Docker
+      docker run --rm -it ${image_tag} python-tool health
       
-      # View logs
-      cd app && docker compose -f compose.deploy.yml logs -f
+      # Pull latest image
+      docker pull ${image_tag}
       
-      # Restart services
-      cd app && docker compose -f compose.deploy.yml restart
-      
-      # Update deployment
-      cd app && docker compose -f compose.deploy.yml pull && docker compose -f compose.deploy.yml up -d
+      # View image details
+      docker inspect ${image_tag}
     owner: deploy:deploy
     permissions: '0644'
 
@@ -138,7 +142,8 @@ write_files:
 final_message: |
   Cloud-init setup complete!
   
-  Application deployed at: http://${deployed_url}:8098
+  Python CLI tool installed successfully!
   SSH access: ssh deploy@YOUR_VM_IP
   
-  Run ./status.sh to check deployment status.
+  Run 'python-tool --help' to see available commands.
+  Run './status.sh' to check deployment status.

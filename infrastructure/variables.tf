@@ -13,7 +13,7 @@ variable "cloudflare_api_token" {
 variable "cloudflare_zone_id" {
   description = "Cloudflare zone ID for miskam.xyz"
   type        = string
-  default     = "2165617a7c07b852b26532b1d8164639"  # Your zone ID from the URL
+  default     = "c344b041d9aec3a95179e4355b189d3d"  # Correct zone ID for miskam.xyz
 }
 
 variable "project_name" {

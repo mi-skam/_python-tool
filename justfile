@@ -106,15 +106,40 @@ build-container:
 push-container: build-container
     ./scripts/push-container.sh
 
+# Make GitHub package public (one-time setup)
+[group('deploy')]
+make-package-public:
+    ./scripts/make-package-public.sh
+
+# Plan deployment changes
+[group('deploy')]
+plan:
+    #!/usr/bin/env bash
+    export GIT_REPO="{{GIT_REPO}}"
+    export GIT_HASH="{{GIT_HASH}}"
+    export GIT_REGISTRY="{{GIT_REGISTRY}}"
+    export GIT_USER="{{GIT_USER}}"
+    ./scripts/plan.sh
+
 # Deploy to cloud infrastructure
 [group('deploy')]
-deploy: push-container
+deploy: plan
+    #!/usr/bin/env bash
+    export GIT_REPO="{{GIT_REPO}}"
+    export GIT_HASH="{{GIT_HASH}}"
+    export GIT_REGISTRY="{{GIT_REGISTRY}}"
+    export GIT_USER="{{GIT_USER}}"
     ./scripts/deploy.sh
 
 # SSH to cloud infrastructure
 [group('deploy')]
 ssh:
     ./scripts/ssh.sh
+
+# Run python-tool command on deployed VM
+[group('deploy')]
+ssh-run *args:
+    ./scripts/ssh-run.sh {{args}}
 
 # Destroy deployment
 [group('deploy')]

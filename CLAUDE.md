@@ -169,6 +169,21 @@ just build-container                    # Build Docker image
 docker run -e SERVICE_NAME=python-tool python-tool:latest python-tool health
 ```
 
+### Container Registry (GitHub Container Registry)
+
+**First-time setup**: After pushing your first container, make the package public:
+
+1. **Push container**: `just push-container`
+2. **Make public**: Go to https://github.com/mi-skam/python-tool/pkgs/container/python-tool
+3. Click **Package settings** → **Change visibility** → **Public**
+
+Or use the helper command: `just make-package-public`
+
+Once public, deployments can pull without authentication:
+```bash
+docker pull ghcr.io/mi-skam/python-tool:latest
+```
+
 ### Production Deployment
 ```bash
 docker compose -f compose.prod.yml up   # Run with production config
