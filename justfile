@@ -145,6 +145,15 @@ ssh-run *args:
 [group('deploy')]
 teardown:
     #!/usr/bin/env bash
+    export GIT_REPO="{{GIT_REPO}}"
+    export GIT_HASH="{{GIT_HASH}}"
+    export GIT_REGISTRY="{{GIT_REGISTRY}}"
+    export GIT_USER="{{GIT_USER}}"
     echo "🧨 Destroying deployment..."
     read -p "Are you sure? (y/N): " -n 1 -r && echo
-    [[ $REPLY =~ ^[Yy]$ ]] && cd infrastructure && tofu destroy -auto-approve
+    if [[ $REPLY =~ ^[Yy]$ ]]; then
+        cd infrastructure && tofu destroy -auto-approve \
+            -var="project_name=${GIT_REPO}" \
+            -var="deployment_id=${GIT_HASH}" \
+            -var="image_tag=${GIT_REGISTRY}/${GIT_USER}/${GIT_REPO}:${GIT_HASH}"
+    fi

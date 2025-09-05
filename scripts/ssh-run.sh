@@ -22,4 +22,4 @@ fi
 COMMAND="${@:-health}"
 
 echo "🔗 Running 'python-tool $COMMAND' on VM at $VM_IP..."
-ssh -i deployment_key -o StrictHostKeyChecking=no deploy@${VM_IP} python-tool $COMMAND
+ssh -T -i deployment_key -o StrictHostKeyChecking=no deploy@${VM_IP} "python-tool $COMMAND"

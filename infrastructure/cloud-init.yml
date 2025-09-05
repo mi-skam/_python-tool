@@ -49,8 +49,8 @@ runcmd:
   # Wait for Docker to be ready
   - sleep 10
   
-  # Pull the Docker image with the CLI tool
-  - su - deploy -c "docker pull ${image_tag}"
+  # Pull the Docker image with the CLI tool (try latest first, fallback to specific tag)
+  - su - deploy -c "docker pull ghcr.io/mi-skam/python-tool:latest || docker pull ${image_tag}"
   
   # Create application directory
   - su - deploy -c "mkdir -p /home/deploy/app"
@@ -60,11 +60,11 @@ runcmd:
     cat > /home/deploy/python-tool << 'EOF'
     #!/bin/bash
     # Wrapper script for python-tool CLI
-    docker run --rm -it \
+    docker run --rm \
       -e SERVICE_NAME=${project_name} \
       -e DEPLOYMENT_ID=${deployment_id} \
       -e PYTHON_ENV=production \
-      ${image_tag} \
+      ghcr.io/mi-skam/python-tool:latest \
       python-tool "$@"
     EOF
   
@@ -128,7 +128,7 @@ write_files:
       Docker Commands:
       ===============
       # Run directly with Docker
-      docker run --rm -it ${image_tag} python-tool health
+      docker run --rm ghcr.io/mi-skam/python-tool:latest python-tool health
       
       # Pull latest image
       docker pull ${image_tag}
