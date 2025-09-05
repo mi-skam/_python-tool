@@ -14,14 +14,14 @@ services:
       retries: 5
 
   cli-tool:
-    image: ${SERVICE_NAME}:latest
+    image: ${GIT_REGISTRY}/${GIT_USER}/${GIT_REPO}:${IMAGE_TAG:-latest}
     environment:
       - PYTHON_ENV=production
       - SERVICE_NAME=${SERVICE_NAME}
       - POSTGRES_USER=${POSTGRES_USER}
       - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
       - POSTGRES_DB=${POSTGRES_DB}
-      - POSTGRES_HOST=postgres
+      - POSTGRES_HOST=postgres  # Use Docker service name
       - POSTGRES_PORT=5432
     depends_on:
       postgres:
