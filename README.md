@@ -1,15 +1,17 @@
-# Python CLI Tool Template with uv & Docker
+# Python CLI Tool Template with Infrastructure Automation
 
-A production-ready CLI application template demonstrating modern Python development practices with containerization, dependency management, and database integration.
+A production-ready CLI application template demonstrating modern Python development practices with complete infrastructure automation, containerization, dependency management, and optional database integration.
 
 ## Template Overview
 
 - **CLI application** with argument parsing and command structure
+- **Complete infrastructure automation** with Terraform/OpenTofu + Ansible deployment
+- **Cloud deployment pipeline** with automatic VM provisioning, DNS setup, and containerized deployments
+- **GitHub Container Registry integration** with automated Docker builds and pushes  
 - **PostgreSQL database integration** for optional data persistence
 - **uv dependency management** for fast, reliable package handling  
 - **Docker containerization** with multi-stage builds for production deployment
 - **just task automation** for streamlined development workflows
-- **Database models & migrations** using SQLAlchemy ORM
 - **Quality assurance tools** including linting, testing, and type checking
 - **GitHub Actions CI/CD** pipeline ready for deployment
 
@@ -26,8 +28,18 @@ A production-ready CLI application template demonstrating modern Python developm
 - **`compose.yml`** - PostgreSQL database for local development (optional)
 
 ### Production Infrastructure  
+- **`infrastructure/`** - Complete Infrastructure as Code with Terraform/OpenTofu
+  - **`main.tf`** - VM provisioning, DNS configuration, security setup
+  - **`variables.tf`** - Configurable deployment parameters
+  - **`cloud-init.yml`** - Automated server initialization
+- **`ansible/`** - Configuration management and application deployment
+  - **`deploy.yml`** - Container deployment, health checks, CLI setup
+  - **`ansible.cfg`** - Optimized deployment configuration
+- **`scripts/`** - Automated deployment orchestration
+  - **`terraform.sh`** - Infrastructure provisioning and management
+  - **`ansible.sh`** - Application deployment automation
 - **`Dockerfile`** - Multi-stage build optimized for production
-- **`compose.prod.yml`** - Production container orchestration
+- **`compose.yml`** - Local development database (optional)
 - **`docker-entrypoint.sh`** - Container startup script
 
 ### Quality Assurance
@@ -37,9 +49,16 @@ A production-ready CLI application template demonstrating modern Python developm
 
 ## Prerequisites
 
-- Docker (optional - only needed for database features)
+### Local Development
+- [uv](https://docs.astral.sh/uv/) Python package manager
 - [just](https://github.com/casey/just) task runner
-- [uv](https://docs.astral.sh/uv/) Python Package manager
+- Docker (optional - only needed for database features)
+
+### Cloud Deployment (Optional)
+- [Terraform/OpenTofu](https://opentofu.org/) for infrastructure provisioning
+- [Ansible](https://www.ansible.com/) for configuration management
+- Cloud provider account (configured for Hetzner Cloud + Cloudflare)
+- GitHub account for container registry
 
 ## Quick Start
 
@@ -107,8 +126,11 @@ just demo     # Run demo commands
 ### Production & Deployment
 | Command | Description |
 |---------|-------------|
-| `just prod <command>` | Run CLI tool in production mode |
-| `just build-container` | Build multi-platform Docker image |
+| `just build` | Build multi-platform Docker image |
+| `just push` | Build and push Docker image to GitHub Container Registry |
+| `just deploy` | Deploy complete infrastructure and application to cloud |
+| `just teardown` | Destroy cloud deployment and cleanup resources |
+| `just ssh` | SSH into deployed cloud infrastructure |
 
 ### Lifecycle Management
 | Command | Description |
@@ -122,16 +144,38 @@ just demo     # Run demo commands
 Required environment variables in `.env`:
 
 ```bash
-# Application settings
-SERVICE_NAME=python-tool
+# Core Application Settings
+SERVICE_NAME=YOUR_PROJECT_NAME
 PYTHON_ENV=development
 
-# Database connection (optional - only needed for --save-db features)
+# GitHub Integration (for container registry and deployment)
+GIT_USER=YOUR_GITHUB_USERNAME
+GIT_REGISTRY=ghcr.io
+
+# Database Connection (optional - only needed for --save-db features)
 POSTGRES_USER=postgres
 POSTGRES_PASSWORD=postgres
 POSTGRES_DB=app_db
 POSTGRES_HOST=127.0.0.1
 POSTGRES_PORT=5432
+```
+
+### Cloud Deployment Configuration (Optional)
+
+For cloud deployment, create `infrastructure/terraform.tfvars`:
+
+```bash
+# Domain and DNS Configuration
+domain = "your-domain.com"
+cloudflare_zone_id = "your_cloudflare_zone_id"
+cloudflare_api_token = "your_cloudflare_api_token"
+
+# Cloud Provider
+hetzner_token = "your_hetzner_cloud_api_token"
+
+# GitHub Integration  
+github_user = "YOUR_GITHUB_USERNAME"
+github_token = "your_github_personal_access_token"
 ```
 
 ## Building Your CLI Tool
@@ -259,8 +303,19 @@ just check-all  # Verify code quality
 
 ### Production Container
 ```bash
-just build-container     # Build optimized image
+just build               # Build optimized image
 docker run python-tool:latest python-tool health
+```
+
+### Cloud Deployment
+```bash
+# Complete automated deployment
+just deploy              # Provisions VM, deploys container, sets up DNS
+
+# Individual components
+just push                # Build and push container to registry
+just ssh                 # SSH into deployed infrastructure
+just teardown            # Destroy cloud resources
 ```
 
 ### Container with Database
@@ -304,7 +359,7 @@ just dev  # Creates fresh database
 ```bash
 # Clear Docker cache
 docker builder prune
-just build-container
+just build
 ```
 
 **Permission errors:**
@@ -347,7 +402,33 @@ uv run python -m src.python_tool.main health
 Add to `justfile`:
 ```just
 # Custom deployment
-deploy:
+my-deploy:
     docker build -t myapp:latest .
     docker push registry.example.com/myapp:latest
 ```
+
+## Template Features
+
+### Infrastructure as Code
+- **Automated VM provisioning** with Hetzner Cloud
+- **DNS management** with Cloudflare integration
+- **Security hardening** with firewall rules and fail2ban
+- **SSL/TLS ready** infrastructure setup
+
+### Container Orchestration
+- **Multi-platform builds** (AMD64 + ARM64)
+- **GitHub Container Registry** integration
+- **Automated deployments** with health checks
+- **Zero-downtime updates** capability
+
+### Developer Experience
+- **Template parameterization** for easy project initialization
+- **One-command deployment** from development to production
+- **Comprehensive testing** with coverage reports
+- **Modern Python tooling** (uv, ruff, mypy)
+
+### Production Ready
+- **Security best practices** built-in
+- **Monitoring and logging** capabilities
+- **Automated backups** support
+- **Scalable architecture** patterns

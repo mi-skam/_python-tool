@@ -55,6 +55,11 @@ check-all: lint cov typing
 dev:
     ./scripts/dev.sh
 
+# Run CLI tool commands in development mode
+[group('run')]
+run *args:
+    PYTHON_ENV=development uv run {{ ARGS_RUN }} python-tool {{ args }}
+
 # Run CLI tool commands via SSH to cloud infrastructure
 [group('run')]
 ssh *args:
