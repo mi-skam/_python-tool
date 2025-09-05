@@ -28,11 +28,17 @@ if [[ -z "$GITHUB_USERNAME" ]]; then
     exit 1
 fi
 
-# Get domain (optional for deployment)
+# Get deployment configuration (optional)
 echo ""
 echo -e "${YELLOW}Deployment Configuration (optional):${NC}"
-read -p "Your domain name (e.g., example.com) [skip if not deploying]: " DOMAIN
-read -p "Cloudflare zone ID [skip if not using Cloudflare]: " CLOUDFLARE_ZONE_ID
+echo "Leave blank to skip cloud deployment setup"
+read -p "Your domain name (e.g., example.com): " DOMAIN
+
+if [ -n "$DOMAIN" ]; then
+    read -p "Cloudflare zone ID: " CLOUDFLARE_ZONE_ID
+    read -p "Cloudflare API token: " CLOUDFLARE_API_TOKEN
+    read -p "Hetzner Cloud API token: " HETZNER_TOKEN
+fi
 
 echo ""
 echo -e "${BLUE}🔄 Updating template files...${NC}"
@@ -53,6 +59,12 @@ if [ -f infrastructure/terraform.tfvars.example ]; then
     fi
     if [ -n "$CLOUDFLARE_ZONE_ID" ]; then
         sed -i.bak "s/your_cloudflare_zone_id_here/$CLOUDFLARE_ZONE_ID/g" infrastructure/terraform.tfvars.example
+    fi
+    if [ -n "$CLOUDFLARE_API_TOKEN" ]; then
+        sed -i.bak "s/your_cloudflare_token_here/$CLOUDFLARE_API_TOKEN/g" infrastructure/terraform.tfvars.example
+    fi
+    if [ -n "$HETZNER_TOKEN" ]; then
+        sed -i.bak "s/your_hetzner_token_here/$HETZNER_TOKEN/g" infrastructure/terraform.tfvars.example
     fi
     rm infrastructure/terraform.tfvars.example.bak
     echo "✅ Updated infrastructure/terraform.tfvars.example"
@@ -107,19 +119,24 @@ fi
 if [ -n "$DOMAIN" ] && [ -f infrastructure/terraform.tfvars.example ] && [ ! -f infrastructure/terraform.tfvars ]; then
     cp infrastructure/terraform.tfvars.example infrastructure/terraform.tfvars
     echo "✅ Created infrastructure/terraform.tfvars from template"
+    echo "⚠️  Note: API tokens have been added to terraform.tfvars - keep this file secure!"
 fi
 
 echo ""
 echo -e "${GREEN}✅ Template initialization complete!${NC}"
 echo ""
 echo -e "${YELLOW}Next steps:${NC}"
-echo "1. Review and update .env with your specific values"
-echo "2. Run: ${BLUE}just install${NC} to set up the development environment"
-echo "3. Run: ${BLUE}just test${NC} to verify everything works"
+echo -e "1. Review and update .env with your specific values"
+echo -e "2. Run: ${BLUE}just install${NC} to set up the development environment"
+echo -e "3. Run: ${BLUE}just test${NC} to verify everything works"
 
 if [ -n "$DOMAIN" ]; then
-    echo "4. Configure infrastructure/terraform.tfvars with your API tokens"
-    echo "5. Run: ${BLUE}just deploy${NC} to deploy to the cloud"
+    if [ -n "$HETZNER_TOKEN" ] && [ -n "$CLOUDFLARE_API_TOKEN" ]; then
+        echo -e "4. Run: ${BLUE}just deploy${NC} to deploy to the cloud"
+    else
+        echo -e "4. Add your API tokens to infrastructure/terraform.tfvars"
+        echo -e "5. Run: ${BLUE}just deploy${NC} to deploy to the cloud"
+    fi
 fi
 
 echo ""
