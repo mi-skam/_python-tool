@@ -8,7 +8,6 @@ if [ -f compose.yml ]; then
     docker compose -f compose.yml up --remove-orphans -d
     echo "⏳ Waiting for services to be ready..."
     sleep 3
-    success "Development environment ready!"
 else
     echo "ℹ️ No compose.yml found - skipping service startup"
-fi?
+fi

@@ -12,8 +12,28 @@
   tasks:
     - name: Wait for cloud-init to complete
       wait_for:
-        path: /home/deploy/.cloud-init-complete
-        timeout: 300
+        path: /var/lib/cloud/instance/boot-finished
+        timeout: 600
+
+    - name: Wait for system services to be ready
+      wait_for:
+        port: 22
+        host: "{{ ansible_host }}"
+        timeout: 60
+        
+    - name: Ensure Docker daemon is running
+      systemd:
+        name: docker
+        state: started
+        enabled: yes
+      become: yes
+      
+    - name: Wait for Docker daemon to be ready
+      shell: docker info
+      register: docker_info
+      until: docker_info.rc == 0
+      retries: 10
+      delay: 5
 
     - name: Create Docker config directory
       file:
@@ -24,13 +44,13 @@
         mode: "0755"
 
     - name: Login to GitHub Container Registry
-      docker_login:
+      community.docker.docker_login:
         registry_url: ghcr.io
         username: "{{ github_user }}"
         password: "{{ github_token }}"
 
     - name: Pull Docker image
-      docker_image:
+      community.docker.docker_image:
         name: "{{ image_tag }}"
         source: pull
         force_source: true
