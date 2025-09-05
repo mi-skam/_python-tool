@@ -19,7 +19,8 @@ def get_system_info():
     return {
         "python_version": sys.version,
         "environment": os.environ.get("PYTHON_ENV", "development"),
-        "service_name": config.get("SERVICE_NAME", "python-tool"),
+        "service_name": os.environ.get("SERVICE_NAME")
+        or config.get("SERVICE_NAME", "python-tool"),
         "timestamp": datetime.now().isoformat(),
     }
 
@@ -44,7 +45,22 @@ def status_command(save_to_db: bool = False) -> dict:
     if save_to_db:
         try:
             config = dotenv_values(".env")
-            database_url = f"postgresql://{config['POSTGRES_USER']}:{config['POSTGRES_PASSWORD']}@{config['POSTGRES_HOST']}:{config['POSTGRES_PORT']}/{config['POSTGRES_DB']}"
+            # Prefer environment variables over .env file for containers
+            postgres_user = os.environ.get("POSTGRES_USER") or config.get(
+                "POSTGRES_USER"
+            )
+            postgres_password = os.environ.get("POSTGRES_PASSWORD") or config.get(
+                "POSTGRES_PASSWORD"
+            )
+            postgres_host = os.environ.get("POSTGRES_HOST") or config.get(
+                "POSTGRES_HOST"
+            )
+            postgres_port = os.environ.get("POSTGRES_PORT") or config.get(
+                "POSTGRES_PORT"
+            )
+            postgres_db = os.environ.get("POSTGRES_DB") or config.get("POSTGRES_DB")
+
+            database_url = f"postgresql://{postgres_user}:{postgres_password}@{postgres_host}:{postgres_port}/{postgres_db}"
             session = get_db_session(database_url=database_url)
 
             # Store execution in database

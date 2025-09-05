@@ -4,6 +4,12 @@
 set dotenv-load := true
 
 SERVICE_NAME := env_var("SERVICE_NAME")
+GIT_USER := env_var("GIT_USER")
+GIT_REGISTRY := env_var("GIT_REGISTRY")
+GIT_HASH := `git rev-parse --short HEAD`
+GIT_REPO := `basename $(git rev-parse --show-toplevel)`
+
+HOST := env("HOST", "127.0.0.1")
 ARGS_TEST := env("_UV_RUN_ARGS_TEST", "")
 ARGS_RUN := env("_UV_RUN_ARGS_CLI", "")
 
@@ -42,6 +48,13 @@ typing:
 [group('qa')]
 check-all: lint cov typing
 
+# Test deployment locally with git hash
+[group('qa')]
+test-deploy: push-container
+    IMAGE_TAG={{GIT_HASH}} GIT_REGISTRY={{GIT_REGISTRY}} GIT_USER={{GIT_USER}} GIT_REPO={{GIT_REPO}} docker compose -f compose.prod.yml up --remove-orphans -d
+    echo "Check the health endpoint at http://{{HOST}}:8098/health"
+    docker compose -f compose.prod.yml logs
+
 # Setup development environment (start database)
 [group('run')]
 dev:
@@ -74,23 +87,7 @@ prod *args:
 status:
     @just run status --save-db --json
 
-[group('run')]
-health:
-    @just run health
 
-[group('run')]
-demo:
-    #!/usr/bin/env bash
-    echo "Running CLI tool demo..."
-    echo ""
-    echo "1. Health check:"
-    just run health
-    echo ""
-    echo "2. Echo command:"
-    just run echo '"Hello World"' --reverse --json
-    echo ""
-    echo "3. Status with database:"
-    just run status --save-db --json
 
 # Update dependencies
 [group('lifecycle')]
@@ -113,6 +110,14 @@ clear:
 fresh: clear install
 
 # Build Docker image if not exists or if dependencies changed (defaults to host platform for speed)
-[group('lifecycle')]
+[group('deploy')]
 build-container:
-    docker buildx build --platform linux/amd64,linux/arm64 -t {{SERVICE_NAME}}:latest .
+    docker buildx build --platform linux/amd64,linux/arm64 -t {{GIT_REPO}}:latest .
+
+[group('deploy')]
+push-container: build-container
+    #!/usr/bin/env bash
+    docker tag {{GIT_REPO}}:latest {{GIT_REGISTRY}}/{{GIT_USER}}/{{GIT_REPO}}:latest
+    docker tag {{GIT_REPO}}:latest {{GIT_REGISTRY}}/{{GIT_USER}}/{{GIT_REPO}}:{{GIT_HASH}}
+    docker push {{GIT_REGISTRY}}/{{GIT_USER}}/{{GIT_REPO}}:latest
+    docker push {{GIT_REGISTRY}}/{{GIT_USER}}/{{GIT_REPO}}:{{GIT_HASH}}
