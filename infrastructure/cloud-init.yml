@@ -1,0 +1,149 @@
+#cloud-config
+
+# Create deploy user with sudo access
+users:
+  - name: deploy
+    sudo: ALL=(ALL) NOPASSWD:ALL
+    shell: /bin/bash
+    ssh_authorized_keys:
+      - ${ssh_public_key}
+    lock_passwd: false
+    passwd: ${deploy_password_hash}
+
+# Update package list and install required packages
+package_update: true
+package_upgrade: true
+
+packages:
+  - git
+  - docker.io
+  - docker-compose-plugin
+  - curl
+  - jq
+  - ufw
+  - fail2ban
+  - unattended-upgrades
+  - python3
+  - python3-pip
+
+# Configure firewall
+runcmd:
+  # Setup Docker
+  - systemctl enable docker
+  - systemctl start docker
+  - usermod -aG docker deploy
+  
+  # Configure firewall (SSH only, no HTTP ports)
+  - ufw default deny incoming
+  - ufw default allow outgoing
+  - ufw allow ssh
+  - ufw --force enable
+  
+  # Configure fail2ban
+  - systemctl enable fail2ban
+  - systemctl start fail2ban
+  
+  # Setup automatic security updates
+  - echo 'Unattended-Upgrade::Automatic-Reboot "false";' >> /etc/apt/apt.conf.d/50unattended-upgrades
+  
+  # Wait for Docker to be ready
+  - sleep 10
+  
+  # Pull the Docker image with the CLI tool
+  - su - deploy -c "docker pull ${image_tag}"
+  
+  # Create application directory
+  - su - deploy -c "mkdir -p /home/deploy/app"
+  
+  # Create wrapper script for the CLI tool
+  - |
+    cat > /home/deploy/python-tool << 'EOF'
+    #!/bin/bash
+    # Wrapper script for python-tool CLI
+    docker run --rm -it \
+      -e SERVICE_NAME=${project_name} \
+      -e DEPLOYMENT_ID=${deployment_id} \
+      -e PYTHON_ENV=production \
+      ${image_tag} \
+      python-tool "$@"
+    EOF
+  
+  - chmod +x /home/deploy/python-tool
+  - chown deploy:deploy /home/deploy/python-tool
+  
+  # Make it available system-wide
+  - ln -s /home/deploy/python-tool /usr/local/bin/python-tool
+  
+  # Create a simple status script
+  - |
+    cat > /home/deploy/status.sh << 'EOF'
+    #!/bin/bash
+    echo "=== Deployment Status ==="
+    echo "Project: ${project_name}"
+    echo "Deployment ID: ${deployment_id}"
+    echo "Container Image: ${image_tag}"
+    echo ""
+    echo "=== Python Tool Commands ==="
+    echo "Available commands:"
+    echo "  python-tool health     - Check health"
+    echo "  python-tool status     - Show status"
+    echo "  python-tool echo TEXT  - Echo text with transformations"
+    echo ""
+    echo "=== Testing CLI Tool ==="
+    python-tool health
+    EOF
+  
+  - chmod +x /home/deploy/status.sh
+  - chown deploy:deploy /home/deploy/status.sh
+
+# Write deployment info
+write_files:
+  - path: /home/deploy/deployment-info.txt
+    content: |
+      Deployment Information
+      =====================
+      Project: ${project_name}
+      Deployment ID: ${deployment_id}
+      Image: ${image_tag}
+      
+      CLI Tool Usage:
+      ==============
+      The python-tool CLI is installed and available system-wide.
+      
+      Examples:
+      --------
+      # Check health
+      python-tool health
+      
+      # Show status
+      python-tool status --json
+      
+      # Echo with transformations
+      python-tool echo "Hello World" --reverse
+      python-tool echo "test" --uppercase --json
+      
+      # Get help
+      python-tool --help
+      
+      Docker Commands:
+      ===============
+      # Run directly with Docker
+      docker run --rm -it ${image_tag} python-tool health
+      
+      # Pull latest image
+      docker pull ${image_tag}
+      
+      # View image details
+      docker inspect ${image_tag}
+    owner: deploy:deploy
+    permissions: '0644'
+
+# Final status
+final_message: |
+  Cloud-init setup complete!
+  
+  Python CLI tool installed successfully!
+  SSH access: ssh deploy@YOUR_VM_IP
+  
+  Run 'python-tool --help' to see available commands.
+  Run './status.sh' to check deployment status.

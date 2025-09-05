@@ -1,0 +1,15 @@
+# Copy this file to terraform.tfvars and fill in your values
+
+# Hetzner Cloud API token
+# Get from: https://console.hetzner.cloud/projects -> Security -> API Tokens
+hetzner_token = "your_hetzner_token_here"
+
+# Cloudflare API token
+# Get from: https://dash.cloudflare.com/profile/api-tokens
+# Needs Zone:Edit permissions for miskam.xyz
+cloudflare_api_token = "your_cloudflare_token_here"
+
+# These will be set automatically by the justfile
+# project_name = "my-project"
+# deployment_id = "a1b2c3d"
+# image_tag = "ghcr.io/mi-skam/my-project:a1b2c3d"
