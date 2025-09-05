@@ -58,19 +58,7 @@ test-deploy: push-container
 # Setup development environment (start database)
 [group('run')]
 dev:
-    #!/usr/bin/env bash
-    # Start Docker Compose services if compose.yml exists
-    if [ -f compose.yml ]; then
-        echo "Starting Docker Compose services..."
-        docker compose -f compose.yml up --remove-orphans -d
-        echo "Waiting for services to be ready..."
-        sleep 3
-    fi
-    echo "Database services started. You can now run CLI commands."
-    echo "Examples:"
-    echo "  just run status --save-db"
-    echo "  just run echo 'hello world' --reverse"
-    echo "  just run health"
+    ./scripts/dev.sh
 
 # Run CLI tool commands
 [group('run')]
@@ -116,8 +104,22 @@ build-container:
 
 [group('deploy')]
 push-container: build-container
+    ./scripts/push-container.sh
+
+# Deploy to cloud infrastructure
+[group('deploy')]
+deploy: push-container
+    ./scripts/deploy.sh
+
+# SSH to cloud infrastructure
+[group('deploy')]
+ssh:
+./scripts/ssh.sh
+
+# Destroy deployment
+[group('deploy')]
+teardown:
     #!/usr/bin/env bash
-    docker tag {{GIT_REPO}}:latest {{GIT_REGISTRY}}/{{GIT_USER}}/{{GIT_REPO}}:latest
-    docker tag {{GIT_REPO}}:latest {{GIT_REGISTRY}}/{{GIT_USER}}/{{GIT_REPO}}:{{GIT_HASH}}
-    docker push {{GIT_REGISTRY}}/{{GIT_USER}}/{{GIT_REPO}}:latest
-    docker push {{GIT_REGISTRY}}/{{GIT_USER}}/{{GIT_REPO}}:{{GIT_HASH}}
+    echo "🧨 Destroying deployment..."
+    read -p "Are you sure? (y/N): " -n 1 -r && echo
+    [[ $REPLY =~ ^[Yy]$ ]] && cd infrastructure && tofu destroy -auto-approve
