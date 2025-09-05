@@ -1,0 +1,144 @@
+#cloud-config
+
+# Create deploy user with sudo access
+users:
+  - name: deploy
+    sudo: ALL=(ALL) NOPASSWD:ALL
+    shell: /bin/bash
+    ssh_authorized_keys:
+      - ${ssh_public_key}
+    lock_passwd: false
+    passwd: ${deploy_password_hash}
+
+# Update package list and install required packages
+package_update: true
+package_upgrade: true
+
+packages:
+  - git
+  - docker.io
+  - docker-compose-plugin
+  - curl
+  - jq
+  - ufw
+  - fail2ban
+  - unattended-upgrades
+
+# Configure firewall
+runcmd:
+  # Setup Docker
+  - systemctl enable docker
+  - systemctl start docker
+  - usermod -aG docker deploy
+  
+  # Configure firewall
+  - ufw default deny incoming
+  - ufw default allow outgoing
+  - ufw allow ssh
+  - ufw allow 8098/tcp  # Application port
+  - ufw --force enable
+  
+  # Configure fail2ban
+  - systemctl enable fail2ban
+  - systemctl start fail2ban
+  
+  # Setup automatic security updates
+  - echo 'Unattended-Upgrade::Automatic-Reboot "false";' >> /etc/apt/apt.conf.d/50unattended-upgrades
+  
+  # Wait for Docker to be ready
+  - sleep 10
+  
+  # Login to GitHub Container Registry (public, no auth needed for pulling)
+  - su - deploy -c "docker pull ${image_tag}"
+  
+  # Create application directory
+  - su - deploy -c "mkdir -p /home/deploy/app"
+  
+  # Create basic compose file for deployment
+  - |
+    cat > /home/deploy/app/compose.deploy.yml << 'EOF'
+    services:
+      app:
+        image: ${image_tag}
+        ports:
+          - "8098:8098"
+        environment:
+          - SERVICE_NAME=${project_name}
+          - DEPLOYED_URL=${deployed_url}
+          - DEPLOYMENT_ID=${deployment_id}
+          - PYTHON_ENV=production
+        restart: unless-stopped
+        depends_on:
+          - postgres
+
+      postgres:
+        image: postgres:15
+        environment:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: app_db
+        restart: unless-stopped
+        volumes:
+          - postgres_data:/var/lib/postgresql/data
+
+    volumes:
+      postgres_data:
+    EOF
+  
+  # Start the application
+  - su - deploy -c "cd /home/deploy/app && docker compose -f compose.deploy.yml up -d"
+  
+  # Create a simple status script
+  - |
+    cat > /home/deploy/status.sh << 'EOF'
+    #!/bin/bash
+    echo "=== Deployment Status ==="
+    echo "Project: ${project_name}"
+    echo "Deployment ID: ${deployment_id}"
+    echo "URL: http://${deployed_url}:8098"
+    echo ""
+    echo "=== Docker Status ==="
+    docker compose -f /home/deploy/app/compose.deploy.yml ps
+    echo ""
+    echo "=== Application Logs (last 20 lines) ==="
+    docker compose -f /home/deploy/app/compose.deploy.yml logs --tail=20 app
+    EOF
+  
+  - chmod +x /home/deploy/status.sh
+  - chown deploy:deploy /home/deploy/status.sh
+
+# Write deployment info
+write_files:
+  - path: /home/deploy/deployment-info.txt
+    content: |
+      Deployment Information
+      =====================
+      Project: ${project_name}
+      Deployment ID: ${deployment_id}
+      Image: ${image_tag}
+      URL: http://${deployed_url}:8098
+      
+      Useful Commands:
+      ===============
+      # Check status
+      ./status.sh
+      
+      # View logs
+      cd app && docker compose -f compose.deploy.yml logs -f
+      
+      # Restart services
+      cd app && docker compose -f compose.deploy.yml restart
+      
+      # Update deployment
+      cd app && docker compose -f compose.deploy.yml pull && docker compose -f compose.deploy.yml up -d
+    owner: deploy:deploy
+    permissions: '0644'
+
+# Final status
+final_message: |
+  Cloud-init setup complete!
+  
+  Application deployed at: http://${deployed_url}:8098
+  SSH access: ssh deploy@YOUR_VM_IP
+  
+  Run ./status.sh to check deployment status.

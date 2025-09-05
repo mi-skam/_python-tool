@@ -114,7 +114,7 @@ deploy: push-container
 # SSH to cloud infrastructure
 [group('deploy')]
 ssh:
-./scripts/ssh.sh
+    ./scripts/ssh.sh
 
 # Destroy deployment
 [group('deploy')]
