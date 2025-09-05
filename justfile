@@ -93,6 +93,12 @@ build:
 # Push Docker image to Container Registry
 [group('deploy')]
 push: build
+    #!/usr/bin/env bash
+    export GIT_REPO="{{GIT_REPO}}"
+    export GIT_HASH="{{GIT_HASH}}"
+    export GIT_REGISTRY="{{GIT_REGISTRY}}"
+    export GIT_USER="{{GIT_USER}}"
+    export GITHUB_TOKEN="{{GITHUB_TOKEN}}"
     ./scripts/push-container.sh
 
 # Deploy to cloud infrastructure
