@@ -4,13 +4,10 @@ set -euo pipefail
 
 # Start Docker Compose services if compose.yml exists
 if [ -f compose.yml ]; then
-    echo "Starting Docker Compose services..."
+    echo "🚀 Starting development services..."
     docker compose -f compose.yml up --remove-orphans -d
-    echo "Waiting for services to be ready..."
+    echo "⏳ Waiting for services to be ready..."
     sleep 3
+else
+    echo "ℹ️ No compose.yml found - skipping service startup"
 fi
-echo "Database services started. You can now run CLI commands."
-echo "Examples:"
-echo "  just run status --save-db"
-echo "  just run echo 'hello world' --reverse"
-echo "  just run health"

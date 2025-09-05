@@ -52,6 +52,8 @@ resource "hcloud_server" "app_server" {
     project_name        = var.project_name
     deployment_id       = var.deployment_id
     image_tag          = var.image_tag
+    github_user        = var.github_user
+    github_token       = var.github_token
   })
 
   # Allow changes to user_data without recreating the server

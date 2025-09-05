@@ -1,0 +1,5 @@
+# Example inventory file - will be auto-generated during deployment
+# Copy this to inventory.ini and update with your server IP
+
+[deployment]
+YOUR_SERVER_IP ansible_user=deploy

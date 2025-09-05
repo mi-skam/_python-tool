@@ -1,0 +1,8 @@
+#!/bin/bash
+# Wrapper script for python-tool CLI
+docker run --rm \
+  -e SERVICE_NAME={{ project_name }} \
+  -e DEPLOYMENT_ID={{ deployment_id }} \
+  -e PYTHON_ENV=production \
+  {{ image_tag }} \
+  python-tool "$@"
