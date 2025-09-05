@@ -9,7 +9,7 @@ GIT_REGISTRY := env_var("GIT_REGISTRY")
 GIT_HASH := `git rev-parse --short HEAD`
 GIT_REPO := `basename $(git rev-parse --show-toplevel)`
 
-GITHUB_TOKEN := `gh auth token`
+GITHUB_TOKEN := env_var_or_default("GITHUB_TOKEN", `gh auth token 2>/dev/null || echo ""`)
 
 HOST := env("HOST", "127.0.0.1")
 ARGS_TEST := env("_UV_RUN_ARGS_TEST", "")
