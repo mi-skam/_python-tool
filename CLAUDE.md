@@ -54,7 +54,8 @@ just clear            # Remove temporary files and caches
 ## Configuration
 
 Required environment variables in `.env`:
-- **SERVICE_NAME**: python-tool (application identifier)
+- **SERVICE_NAME**: Your project name (application identifier)
+- **GIT_USER**: Your GitHub username
 - **PYTHON_ENV**: development or production
 - **POSTGRES_USER/PASSWORD/DB/HOST/PORT**: Database connection settings (optional)
 
@@ -102,12 +103,12 @@ The CLI tool (`src/python_tool/main.py`) demonstrates:
 
 ```bash
 # Basic commands
-python-tool health
-python-tool echo "hello world" --reverse --json
-python-tool status --json
+YOUR_PROJECT_NAME health
+YOUR_PROJECT_NAME echo "hello world" --reverse --json
+YOUR_PROJECT_NAME status --json
 
 # With database integration
-python-tool status --save-db --json
+YOUR_PROJECT_NAME status --save-db --json
 ```
 
 ## Testing
@@ -147,11 +148,11 @@ just dev  # Creates fresh database
 
 ### CLI Command Issues
 ```bash
-# If python-tool command not found
+# If YOUR_PROJECT_NAME command not found
 just install  # Reinstall CLI tool
 
 # Or run via module
-uv run python -m src.python_tool.main health
+uv run python -m src.YOUR_PROJECT_NAME.main health
 ```
 
 ## Best Practices
@@ -166,7 +167,7 @@ uv run python -m src.python_tool.main health
 ### Build and Run
 ```bash
 just build-container                    # Build Docker image
-docker run -e SERVICE_NAME=python-tool python-tool:latest python-tool health
+docker run -e SERVICE_NAME=YOUR_PROJECT_NAME YOUR_PROJECT_NAME:latest YOUR_PROJECT_NAME health
 ```
 
 ### Container Registry (GitHub Container Registry)
@@ -174,14 +175,12 @@ docker run -e SERVICE_NAME=python-tool python-tool:latest python-tool health
 **First-time setup**: After pushing your first container, make the package public:
 
 1. **Push container**: `just push-container`
-2. **Make public**: Go to https://github.com/mi-skam/python-tool/pkgs/container/python-tool
+2. **Make public**: Go to https://github.com/YOUR_GITHUB_USERNAME/YOUR_PROJECT_NAME/pkgs/container/YOUR_PROJECT_NAME
 3. Click **Package settings** → **Change visibility** → **Public**
-
-Or use the helper command: `just make-package-public`
 
 Once public, deployments can pull without authentication:
 ```bash
-docker pull ghcr.io/mi-skam/python-tool:latest
+docker pull ghcr.io/YOUR_GITHUB_USERNAME/YOUR_PROJECT_NAME:latest
 ```
 
 ### Production Deployment

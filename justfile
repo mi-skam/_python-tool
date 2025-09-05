@@ -80,6 +80,11 @@ ssh *args:
 update:
     uv sync --upgrade
 
+# Initialize template with project-specific values
+[group('lifecycle')]
+setup:
+    @./scripts/init-template.sh
+
 # Ensure project virtualenv is up to date
 [group('lifecycle')]
 install:

@@ -11,9 +11,8 @@ variable "cloudflare_api_token" {
 }
 
 variable "cloudflare_zone_id" {
-  description = "Cloudflare zone ID for miskam.xyz"
+  description = "Cloudflare zone ID for your domain"
   type        = string
-  default     = "c344b041d9aec3a95179e4355b189d3d"  # Correct zone ID for miskam.xyz
 }
 
 variable "project_name" {
@@ -42,7 +41,6 @@ variable "image_tag" {
 variable "domain" {
   description = "Base domain for deployments"
   type        = string
-  default     = "miskam.xyz"
 }
 
 variable "github_user" {
